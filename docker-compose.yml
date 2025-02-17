@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NATS_URL=nats://nats:4222
+    env_file:
+      - ./.env.local
+    volumes:
+      # Mount your NATS credentials file (uncomment and modify path as needed)
+      # - ~/.config/nats/context/nats.creds:/app/creds/nats.creds
+      - ./.env.local:/app/.env.local
+    depends_on:
+      - nats
+
+  # Local NATS server for development
+  # Comment out this service if using production NATS server
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222" # Client connections
+      - "8222:8222" # HTTP monitoring
+    command: ["--jetstream"]
+    volumes:
+      - nats-data:/data
+
+volumes:
+  nats-data:
