@@ -1,19 +1,20 @@
-import { CopyButton } from './CopyButton';
+import { JSX } from "react";
+import { CopyButton } from "./CopyButton";
 
 interface HeaderPillProps {
   value: string;
 }
 
-export function HeaderPill({ value }: HeaderPillProps) {
+export function HeaderPill({ value }: HeaderPillProps): JSX.Element {
   return (
     <div className="group relative inline-flex items-center">
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
         {value}
       </span>
-      <CopyButton 
+      <CopyButton
         value={value}
         className="ml-1 opacity-0 group-hover:opacity-100"
       />
     </div>
   );
-} 
+}
