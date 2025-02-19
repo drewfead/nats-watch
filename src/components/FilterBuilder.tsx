@@ -1,7 +1,21 @@
-import { Dialog, Transition, TransitionChild, DialogPanel, DialogTitle, Tab } from '@headlessui/react';
-import { Fragment, useEffect, useState } from 'react';
-import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { Filter, FilterGroup, FilterLogic, ValueFilter, KeyValueFilter, Unfiltered } from '@/types/filter';
+import {
+  Dialog,
+  Transition,
+  TransitionChild,
+  DialogPanel,
+  DialogTitle,
+  Tab,
+} from "@headlessui/react";
+import { Fragment, JSX, useEffect, useState } from "react";
+import {
+  Filter,
+  FilterGroup,
+  FilterLogic,
+  ValueFilter,
+  KeyValueFilter,
+  Unfiltered,
+} from "@/types/filter";
+import { CloseIcon, PlusIcon } from "@/components/icons";
 
 interface FilterBuilderProps {
   filter: Filter;
@@ -11,28 +25,28 @@ interface FilterBuilderProps {
 }
 
 const EMPTY_VALUE_FILTER: ValueFilter = {
-  type: 'value',
-  field: 'subject',
-  operator: 'contains',
-  value: ''
+  type: "value",
+  field: "subject",
+  operator: "contains",
+  value: "",
 };
 
 const EMPTY_KEY_VALUE_FILTER: KeyValueFilter = {
-  type: 'key-value',
-  field: 'headers',
-  operator: 'contains',
-  key: '',
-  value: ''
+  type: "key-value",
+  field: "headers",
+  operator: "contains",
+  key: "",
+  value: "",
 };
 
 const EMPTY_GROUP: FilterGroup = {
-  type: 'group',
-  logic: 'and',
-  filters: []
+  type: "group",
+  logic: "and",
+  filters: [],
 };
 
 const UNFILTERED: Unfiltered = {
-  type: 'unfiltered'
+  type: "unfiltered",
 };
 
 interface SimpleFilterRowProps {
@@ -40,20 +54,26 @@ interface SimpleFilterRowProps {
   onChange: (filter: ValueFilter | KeyValueFilter | Unfiltered) => void;
 }
 
-function SimpleFilterRow({ filter, onChange }: SimpleFilterRowProps) {
-  if (filter.type === 'unfiltered') {
+function SimpleFilterRow({
+  filter,
+  onChange,
+}: SimpleFilterRowProps): JSX.Element {
+  if (filter.type === "unfiltered") {
     return (
       <div className="flex items-center space-x-2">
         <select
           value="unfiltered"
           onChange={(e) => {
             const field = e.target.value;
-            if (field === 'unfiltered') {
+            if (field === "unfiltered") {
               onChange(UNFILTERED);
-            } else if (field === 'headers') {
+            } else if (field === "headers") {
               onChange(EMPTY_KEY_VALUE_FILTER);
             } else {
-              onChange({ ...EMPTY_VALUE_FILTER, field: field as 'subject' | 'payload' });
+              onChange({
+                ...EMPTY_VALUE_FILTER,
+                field: field as "subject" | "payload",
+              });
             }
           }}
           className="rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2"
@@ -73,12 +93,15 @@ function SimpleFilterRow({ filter, onChange }: SimpleFilterRowProps) {
         value={filter.field}
         onChange={(e) => {
           const field = e.target.value;
-          if (field === 'unfiltered') {
+          if (field === "unfiltered") {
             onChange(UNFILTERED);
-          } else if (field === 'headers') {
+          } else if (field === "headers") {
             onChange(EMPTY_KEY_VALUE_FILTER);
           } else {
-            onChange({ ...EMPTY_VALUE_FILTER, field: field as 'subject' | 'payload' });
+            onChange({
+              ...EMPTY_VALUE_FILTER,
+              field: field as "subject" | "payload",
+            });
           }
         }}
         className="rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2"
@@ -89,7 +112,7 @@ function SimpleFilterRow({ filter, onChange }: SimpleFilterRowProps) {
         <option value="payload">Payload</option>
       </select>
 
-      {filter.type === 'key-value' && (
+      {filter.type === "key-value" && (
         <input
           type="text"
           value={filter.key}
@@ -117,40 +140,49 @@ interface FilterGroupComponentProps {
   isRoot?: boolean;
 }
 
-function FilterGroupComponent({ group, onChange, onRemove, isRoot = false }: FilterGroupComponentProps) {
-  const addFilter = () => {
+function FilterGroupComponent({
+  group,
+  onChange,
+  onRemove,
+  isRoot = false,
+}: FilterGroupComponentProps): JSX.Element {
+  const addFilter = (): void => {
     onChange({
       ...group,
-      filters: [...group.filters, { ...EMPTY_VALUE_FILTER }]
+      filters: [...group.filters, { ...EMPTY_VALUE_FILTER }],
     });
   };
 
-  const addGroup = () => {
+  const addGroup = (): void => {
     onChange({
       ...group,
-      filters: [...group.filters, { ...EMPTY_GROUP }]
+      filters: [...group.filters, { ...EMPTY_GROUP }],
     });
   };
 
-  const updateFilter = (index: number, newValue: Filter) => {
+  const updateFilter = (index: number, newValue: Filter): void => {
     const newFilters = [...group.filters];
     newFilters[index] = newValue;
     onChange({ ...group, filters: newFilters });
   };
 
-  const removeFilter = (index: number) => {
+  const removeFilter = (index: number): void => {
     onChange({
       ...group,
-      filters: group.filters.filter((_, i) => i !== index)
+      filters: group.filters.filter((_, i) => i !== index),
     });
   };
 
   return (
-    <div className={`space-y-4 ${!isRoot ? 'border-l-2 pl-4 ml-2 border-gray-300 dark:border-gray-600' : ''}`}>
+    <div
+      className={`space-y-4 ${!isRoot ? "border-l-2 pl-4 ml-2 border-gray-300 dark:border-gray-600" : ""}`}
+    >
       <div className="flex items-center space-x-2">
         <select
           value={group.logic}
-          onChange={(e) => onChange({ ...group, logic: e.target.value as FilterLogic })}
+          onChange={(e) =>
+            onChange({ ...group, logic: e.target.value as FilterLogic })
+          }
           className="rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2"
         >
           <option value="and">AND</option>
@@ -162,14 +194,14 @@ function FilterGroupComponent({ group, onChange, onRemove, isRoot = false }: Fil
             onClick={() => onRemove?.()}
             className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <XMarkIcon className="h-5 w-5" />
+            <CloseIcon className="h-5 w-5" />
           </button>
         )}
       </div>
 
       <div className="space-y-2">
-        {group.filters.map((filter, index) => (
-          filter.type === 'group' ? (
+        {group.filters.map((filter, index) =>
+          filter.type === "group" ? (
             <FilterGroupComponent
               key={index}
               group={filter}
@@ -186,11 +218,11 @@ function FilterGroupComponent({ group, onChange, onRemove, isRoot = false }: Fil
                 onClick={() => removeFilter(index)}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <XMarkIcon className="h-5 w-5" />
+                <CloseIcon className="h-5 w-5" />
               </button>
             </div>
           )
-        ))}
+        )}
       </div>
 
       <div className="flex space-x-2">
@@ -213,167 +245,152 @@ function FilterGroupComponent({ group, onChange, onRemove, isRoot = false }: Fil
   );
 }
 
-export function FilterBuilder({ filter, onChange, isOpen, onClose }: FilterBuilderProps) {
-  const [activeFilter, setActiveFilter] = useState<Filter>(filter);
-  const [selectedTab, setSelectedTab] = useState(filter.type === 'group' ? 1 : 0);
-  
+export function FilterBuilder({
+  filter,
+  onChange,
+  isOpen,
+  onClose,
+}: FilterBuilderProps): JSX.Element {
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [simpleFilter, setSimpleFilter] = useState<
+    ValueFilter | KeyValueFilter | Unfiltered
+  >(filter.type === "group" ? UNFILTERED : filter);
+  const [advancedFilter, setAdvancedFilter] = useState<FilterGroup>(
+    filter.type === "group" ? filter : EMPTY_GROUP
+  );
+
   useEffect(() => {
-    if (isOpen) {
-      setActiveFilter(filter);
-      setSelectedTab(filter.type === 'group' ? 1 : 0);
+    if (filter.type === "group") {
+      setAdvancedFilter(filter);
+      setSelectedTab(1);
+    } else {
+      setSimpleFilter(filter);
+      setSelectedTab(0);
     }
-  }, [isOpen, filter]);
-  
-  const handleFilterChange = (newFilter: Filter) => {
-    setActiveFilter(newFilter);
+  }, [filter]);
+
+  const handleFilterChange = (newFilter: Filter): void => {
     onChange(newFilter);
   };
 
-  const handleClearFilter = () => {
-    const emptyFilter = selectedTab === 1 ? { ...EMPTY_GROUP } : UNFILTERED;
-    setActiveFilter(emptyFilter);
-    onChange(emptyFilter);
+  const handleClearFilter = (): void => {
+    handleFilterChange(UNFILTERED);
     onClose();
   };
 
-  const handleTabChange = (index: number) => {
+  const handleTabChange = (index: number): void => {
     setSelectedTab(index);
-    if (index === 1) {
-      // Switching to advanced mode
-      if (activeFilter.type === 'unfiltered') {
-        // Switch to advanced mode with empty group
-        const newGroup: FilterGroup = {
-          type: 'group',
-          logic: 'and',
-          filters: []
-        };
-        setActiveFilter(newGroup);
-        onChange(newGroup);
-      } else if (activeFilter.type !== 'group') {
-        // Switch to advanced mode - wrap current filter in a group
-        const newGroup: FilterGroup = {
-          type: 'group',
-          logic: 'and',
-          filters: [activeFilter]
-        };
-        setActiveFilter(newGroup);
-        onChange(newGroup);
-      }
+    if (index === 0) {
+      handleFilterChange(simpleFilter);
     } else {
-      // Switching to simple mode
-      if (activeFilter.type === 'group') {
-        // Take the first filter from the group if it exists
-        const group = activeFilter as FilterGroup;
-        const firstFilter = group.filters[0] || UNFILTERED;
-        setActiveFilter(firstFilter);
-        onChange(firstFilter);
-      }
+      handleFilterChange(advancedFilter);
     }
   };
 
-  // Ensure we have valid filter types for each tab
-  const simpleFilter = activeFilter.type === 'group' ? UNFILTERED : activeFilter;
-  const advancedFilter = activeFilter.type === 'group' ? activeFilter : { ...EMPTY_GROUP, filters: activeFilter.type === 'unfiltered' ? [] : [activeFilter] };
-
   return (
-    <>      
-      <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={onClose}>
-          <TransitionChild
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25 dark:bg-opacity-50" />
-          </TransitionChild>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <TransitionChild
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+        </TransitionChild>
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <TransitionChild
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
-                  <DialogTitle
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <TransitionChild
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <DialogPanel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl transition-all">
+                <DialogTitle
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4"
+                >
+                  Filter Messages
+                </DialogTitle>
+
+                <Tab.Group
+                  selectedIndex={selectedTab}
+                  onChange={handleTabChange}
+                >
+                  <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 dark:bg-gray-700 p-1 mb-4">
+                    <Tab
+                      className={({ selected }) =>
+                        `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ${
+                          selected
+                            ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow"
+                            : "text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`
+                      }
+                    >
+                      Simple
+                    </Tab>
+                    <Tab
+                      className={({ selected }) =>
+                        `w-full rounded-lg py-2.5 text-sm font-medium leading-5 ${
+                          selected
+                            ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow"
+                            : "text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                        }`
+                      }
+                    >
+                      Advanced
+                    </Tab>
+                  </Tab.List>
+                  <Tab.Panels>
+                    <Tab.Panel>
+                      <SimpleFilterRow
+                        filter={simpleFilter}
+                        onChange={(newFilter) => {
+                          setSimpleFilter(newFilter);
+                          handleFilterChange(newFilter);
+                        }}
+                      />
+                    </Tab.Panel>
+                    <Tab.Panel>
+                      <FilterGroupComponent
+                        group={advancedFilter}
+                        onChange={(newGroup) => {
+                          setAdvancedFilter(newGroup);
+                          handleFilterChange(newGroup);
+                        }}
+                        isRoot
+                      />
+                    </Tab.Panel>
+                  </Tab.Panels>
+                </Tab.Group>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={handleClearFilter}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
                   >
-                    Filter Messages
-                  </DialogTitle>
-
-                  <Tab.Group selectedIndex={selectedTab} onChange={handleTabChange}>
-                    <Tab.List className="flex space-x-2 rounded-xl bg-gray-100 dark:bg-gray-700/50 p-1 mb-4">
-                      <Tab
-                        className={({ selected }) =>
-                          `w-full rounded-lg py-2.5 text-sm font-medium leading-5
-                           ${selected
-                            ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow'
-                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                          }`
-                        }
-                      >
-                        Simple
-                      </Tab>
-                      <Tab
-                        className={({ selected }) =>
-                          `w-full rounded-lg py-2.5 text-sm font-medium leading-5
-                           ${selected
-                            ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow'
-                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                          }`
-                        }
-                      >
-                        Advanced
-                      </Tab>
-                    </Tab.List>
-                    <Tab.Panels>
-                      <Tab.Panel>
-                        <SimpleFilterRow
-                          filter={simpleFilter}
-                          onChange={handleFilterChange}
-                        />
-                      </Tab.Panel>
-                      <Tab.Panel>
-                        <FilterGroupComponent
-                          group={advancedFilter as FilterGroup}
-                          onChange={(newGroup) => handleFilterChange(newGroup)}
-                          isRoot
-                        />
-                      </Tab.Panel>
-                    </Tab.Panels>
-                  </Tab.Group>
-
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={handleClearFilter}
-                      className="inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </DialogPanel>
-              </TransitionChild>
-            </div>
+                    Clear Filter
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  >
+                    Done
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
           </div>
-        </Dialog>
-      </Transition>
-    </>
+        </div>
+      </Dialog>
+    </Transition>
   );
-} 
+}

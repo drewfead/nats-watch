@@ -6,4 +6,4 @@ declare global {
       [key: string]: string | undefined;
     }
   }
-} 
+}

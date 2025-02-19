@@ -1,5 +1,5 @@
 export interface NatsMessage {
-  type: 'core' | 'jetstream';
+  type: "core" | "jetstream";
   payload: string;
   subject: string;
   timestamp: string;
@@ -7,12 +7,12 @@ export interface NatsMessage {
 }
 
 export interface CoreMessage extends NatsMessage {
-  type: 'core';
+  type: "core";
   reply?: string;
 }
 
 export interface JetStreamMessage extends NatsMessage {
-  type: 'jetstream';
+  type: "jetstream";
   payload: string;
   subject: string;
   seq: number;
@@ -26,8 +26,8 @@ export interface NatsSubscription {
 }
 
 export interface ConnectionStatusEvent {
-  type: 'connection_status';
-  status: 'connected' | 'disconnected' | 'error';
+  type: "connection_status";
+  status: "connected" | "disconnected" | "error";
   subject?: string;
   stream?: string;
   timestamp: string;
@@ -35,26 +35,44 @@ export interface ConnectionStatusEvent {
 }
 
 export interface HeartbeatEvent {
-  type: 'heartbeat';
+  type: "heartbeat";
   timestamp: string;
 }
 
 export type ControlEvent = ConnectionStatusEvent | HeartbeatEvent;
 
 export interface MessageEnvelope {
-  type: 'message';
+  type: "message";
   payload: NatsMessage | JetStreamMessage;
 }
 
 export interface ControlEnvelope {
-  type: 'control';
+  type: "control";
   payload: ControlEvent;
 }
 
-export type EventEnvelope = MessageEnvelope | ControlEnvelope; 
+export type EventEnvelope = MessageEnvelope | ControlEnvelope;
 
 export type StreamMetadata = {
   name: string;
   subjectPrefixes: string[];
   description?: string;
 };
+
+type ConsumerFlow = "push" | "pull";
+type ConsumerDurability = "durable" | "ephemeral";
+
+export interface ConsumerMetadata {
+  name: string;
+  stream: string;
+  durability: ConsumerDurability;
+  flow: ConsumerFlow;
+  filterSubjects: string[];
+  unprocessedCount: number;
+  ackPendingCount: number;
+  ackFloor: number;
+  lastDelivered: number;
+  pendingCount: number;
+  redeliveredCount: number;
+  waitingCount: number;
+}
