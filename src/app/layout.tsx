@@ -1,11 +1,9 @@
 import "./globals.css";
+import "./fonts.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { JSX } from "react";
 import { Navigation } from "@/components/Navigation";
 import { NotificationProvider } from "./notifications";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "NATS Watch",
@@ -19,7 +17,7 @@ export default function RootLayout({
 }): JSX.Element {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full`}>
+      <body className="h-full font-sans antialiased">
         <NotificationProvider>
           <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
             <Navigation />

@@ -3,14 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --foreground: theme('colors.gray.900');
+  --background: theme('colors.gray.50');
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: theme('colors.gray.50');
+    --background: theme('colors.gray.900');
+  }
+}
+
+/* Font variation settings support */
+@supports (font-variation-settings: normal) {
+  body {
+    font-family: 'Inter var', sans-serif;
   }
 }
 
