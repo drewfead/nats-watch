@@ -1,6 +1,6 @@
 "use client";
 
-import { JSX, useState, useCallback, useEffect } from "react";
+import { JSX, useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { getStreams } from "@/app/actions";
 import { StreamMetadata } from "@/types/nats";
@@ -18,7 +18,7 @@ import {
 } from "@tanstack/react-table";
 import { SortIcon, NewPageLinkIcon } from "@/components/icons";
 
-export const HeaderCell = ({
+const HeaderCell = ({
   header,
   align = "left",
 }: {
@@ -129,7 +129,7 @@ const columns = [
   }),
 ];
 
-export default function JetstreamHubPage(): JSX.Element {
+function JetstreamHub(): JSX.Element {
   const [streams, setStreams] = useState<StreamMetadata[]>([]);
   const [error, setError] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -230,5 +230,13 @@ export default function JetstreamHubPage(): JSX.Element {
         </table>
       </div>
     </div>
+  );
+}
+
+export default function JetstreamHubPage(): JSX.Element {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <JetstreamHub />
+    </Suspense>
   );
 }

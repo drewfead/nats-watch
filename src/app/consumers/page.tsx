@@ -37,7 +37,7 @@ const IconCell = ({
   </div>
 );
 
-export const HeaderCell = ({
+const HeaderCell = ({
   header,
   align = "left",
 }: {
@@ -160,7 +160,7 @@ const ConsumerCell = ({
 
 const columnHelper = createColumnHelper<ConsumerMetadata>();
 
-export const columns = [
+const columns = [
   columnHelper.accessor("name", {
     header: "Consumer",
     cell: (info) => (
