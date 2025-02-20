@@ -7,11 +7,10 @@ A web-based NATS monitoring and debugging tool that allows you to view and inter
 To run NATS Watch using Docker, use the following command:
 
 ```bash
-docker run -p 3000:3000 \
+docker run -p 9666:9666 \
   -e NATS_URL=nats://your-nats-server:4222 \
-  -e NATS_CREDS_PATH=/app/nats.creds \
   -v /path/to/your/nats.creds:/app/nats.creds \
-  natswatch/natswatch
+  drewfead/nats-watch
 ```
 
 ### Environment Variables
