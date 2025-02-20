@@ -10,12 +10,12 @@ export function isValidNatsSubject(subject: string): {
     return { isValid: false, error: "Subject cannot contain whitespace" };
   }
 
-  // Check for invalid characters (anything that's not alphanumeric, dot, star, or greater than)
-  const invalidCharMatch = subject.match(/[^a-zA-Z0-9.*>-]/);
+  // Check for special characters that are not allowed (., *, >)
+  const invalidCharMatch = subject.match(/[.*>]/);
   if (invalidCharMatch) {
     return {
       isValid: false,
-      error: `Invalid character "${invalidCharMatch[0]}" in subject (only alphanumeric, dots, wildcards, and hyphens allowed)`,
+      error: `Invalid character "${invalidCharMatch[0]}" in subject (periods, wildcards are not allowed within tokens)`,
     };
   }
 
