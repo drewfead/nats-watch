@@ -59,6 +59,12 @@ jobs:
           images: |
             ghcr.io/${{ env.IMAGE_NAME }}
             drewfead/nats-watch
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+            type=sha,format=long
+            type=ref,event=branch
+            type=ref,event=tag
 
       - name: Build and Push
         id: build-and-push
