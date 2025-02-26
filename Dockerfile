@@ -29,6 +29,12 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
+# Define build arguments with defaults
+ARG NEXT_PUBLIC_MULTICLUSTER_ENABLED=true
+
+# Use the build arguments to set environment variables
+ENV NEXT_PUBLIC_MULTICLUSTER_ENABLED=${NEXT_PUBLIC_MULTICLUSTER_ENABLED}
+
 RUN \
     if [ -f yarn.lock ]; then yarn run build; \
     elif [ -f package-lock.json ]; then npm run build; \
@@ -44,6 +50,11 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
+# Define build arguments with defaults for the runner stage
+ARG NEXT_PUBLIC_MULTICLUSTER_ENABLED=true
+ARG NATS_CLUSTER_AUTO_IMPORT=true
+ARG NATS_CLUSTER_AUTO_IMPORT_PATH=/etc/nats
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -54,14 +65,19 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Ensure /tmp/.nats-watch directory exists and is writable
+RUN mkdir -p /tmp/.nats-watch && chown -R nextjs:nodejs /tmp/.nats-watch
+
 USER nextjs
 
 EXPOSE 9666
 
 ENV PORT=9666
 ENV HOSTNAME="0.0.0.0"
-ENV NATS_CREDS_PATH=/app/nats.creds
+ENV NEXT_PUBLIC_MULTICLUSTER_ENABLED=${NEXT_PUBLIC_MULTICLUSTER_ENABLED}
+ENV NATS_CLUSTER_AUTO_IMPORT=${NATS_CLUSTER_AUTO_IMPORT}
+ENV NATS_CLUSTER_AUTO_IMPORT_PATH=${NATS_CLUSTER_AUTO_IMPORT_PATH}
+ENV NATS_WATCH_CONFIG_DIR="/tmp/.nats-watch"
 
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
+# Use the standard Next.js server
 CMD ["node", "server.js"]

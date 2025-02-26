@@ -1,7 +1,6 @@
 "use server";
 
 import {
-  closeNatsConnection,
   getJetstreamMessage,
   getJetstreamMessageRange,
   listConsumers,
@@ -12,25 +11,15 @@ import {
   JetStreamMessage,
   StreamMetadata,
 } from "@/types/nats";
-
-export type Result<T> = Promise<Success<T> | Failure>;
-
-export interface Failure {
-  success: false;
-  error: string;
-}
-
-export interface Success<T> {
-  success: true;
-  data: T;
-}
+import { Result } from "./results";
 
 export async function getStreamMessage(
   stream: string,
-  seq: number
+  seq: number,
+  clusterId?: string
 ): Result<JetStreamMessage> {
   try {
-    const message = await getJetstreamMessage(stream, seq);
+    const message = await getJetstreamMessage(stream, seq, clusterId);
     return {
       success: true,
       data: message,
@@ -48,6 +37,7 @@ export async function getStreamMessageRange(
   stream: string,
   seq: number,
   limit: number,
+  clusterId?: string,
   filterSubject?: string
 ): Result<JetStreamMessage[]> {
   try {
@@ -55,6 +45,7 @@ export async function getStreamMessageRange(
       stream,
       seq,
       limit,
+      clusterId,
       filterSubject
     );
     return {
@@ -73,9 +64,9 @@ export async function getStreamMessageRange(
   }
 }
 
-export async function getStreams(): Result<StreamMetadata[]> {
+export async function getStreams(clusterId?: string): Result<StreamMetadata[]> {
   try {
-    const streams = await listStreams();
+    const streams = await listStreams(clusterId);
     return { success: true, data: streams };
   } catch (error) {
     console.error("Error fetching streams:", error);
@@ -86,9 +77,12 @@ export async function getStreams(): Result<StreamMetadata[]> {
   }
 }
 
-export async function getConsumers(stream: string): Result<ConsumerMetadata[]> {
+export async function getConsumers(
+  stream: string,
+  clusterId?: string
+): Result<ConsumerMetadata[]> {
   try {
-    const consumers = await listConsumers(stream);
+    const consumers = await listConsumers(stream, clusterId);
     return { success: true, data: consumers };
   } catch (error) {
     console.error("Error fetching consumers:", error);
@@ -96,19 +90,6 @@ export async function getConsumers(stream: string): Result<ConsumerMetadata[]> {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to fetch consumers",
-    };
-  }
-}
-
-export async function cleanup(): Result<void> {
-  try {
-    await closeNatsConnection();
-    return { success: true, data: undefined };
-  } catch (error) {
-    console.error("Error closing NATS connection:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

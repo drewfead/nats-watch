@@ -10,9 +10,15 @@ import {
   JetStreamManager,
 } from "@nats-io/jetstream";
 import { connect } from "@nats-io/transport-node";
-import { NatsConnection, Msg, credsAuthenticator } from "@nats-io/nats-core";
+import {
+  NatsConnection,
+  Msg,
+  credsAuthenticator,
+  ConnectionOptions,
+} from "@nats-io/nats-core";
 import { readFileSync } from "fs";
 import {
+  ClusterConnectionStatus,
   ConsumerMetadata,
   CoreMessage,
   JetStreamMessage,
@@ -20,78 +26,314 @@ import {
   StreamMetadata,
 } from "@/types/nats";
 import { randomUUID } from "crypto";
+import { ClusterConfig, ClusterConfigParameters } from "@/types/nats";
+import {
+  isMulticlusterEnabled,
+  isAutoImportEnabled,
+  getAutoImportPath,
+  isNatsUrlConfigured,
+} from "./feature";
+import { readClustersConfig, writeClustersConfig } from "./storage";
+import { scanNatsConfig } from "./nats-cli";
 
-let natsConnection: NatsConnection | null = null;
+// Store active connections
+const connections = new Map<string, NatsConnection>();
 
-export async function getNatsConnection(): Promise<NatsConnection> {
-  if (!natsConnection) {
-    try {
-      // Get credentials from environment variables
-      const natsUrl = process.env.NATS_URL;
-      const natsCredsPath = process.env.NATS_CREDS_PATH;
+const defaultClusterId = "default";
 
-      if (!natsUrl || !natsCredsPath) {
-        throw new Error(
-          "NATS configuration missing. Please set NATS_URL and NATS_CREDS_PATH environment variables."
-        );
-      }
+// Auto-import NATS configurations on server startup
+export async function autoImportNatsConfigurations(): Promise<void> {
+  if (!isMulticlusterEnabled(process.env)) {
+    console.log("Auto-import: Multicluster support is not enabled");
+    return;
+  }
 
-      const credsContent = readFileSync(natsCredsPath);
+  if (!isAutoImportEnabled(process.env)) {
+    console.log(
+      "Auto-import: Automatic import of NATS configurations is not enabled"
+    );
+    return;
+  }
 
-      natsConnection = await connect({
-        servers: natsUrl,
-        authenticator: credsAuthenticator(credsContent),
-        pingInterval: 25000, // Send ping every 25 seconds
-        maxPingOut: 3, // Allow 3 missed pings before considering connection dead
-        reconnect: true,
-        reconnectTimeWait: 2000,
-        timeout: 20000,
-      });
+  const importPath = getAutoImportPath(process.env);
+  if (!importPath) {
+    console.warn(
+      "Auto-import: Auto-import is enabled but no import path is specified. Set NATS_CLUSTER_AUTO_IMPORT_PATH environment variable."
+    );
+    return;
+  }
 
-      // Handle connection close
-      natsConnection.closed().then((err) => {
-        console.log("NATS connection closed", err);
-        natsConnection = null;
-      });
-    } catch (error) {
-      console.error("Failed to connect to NATS:", error);
-      throw error;
+  console.log(
+    `Auto-import: Starting scan of NATS configurations from path: ${importPath}`
+  );
+  console.log(`Auto-import: Environment variables:`);
+  console.log(
+    `- NEXT_PUBLIC_MULTICLUSTER_ENABLED: ${process.env.NEXT_PUBLIC_MULTICLUSTER_ENABLED}`
+  );
+  console.log(
+    `- NATS_CLUSTER_AUTO_IMPORT: ${process.env.NATS_CLUSTER_AUTO_IMPORT}`
+  );
+  console.log(
+    `- NATS_CLUSTER_AUTO_IMPORT_PATH: ${process.env.NATS_CLUSTER_AUTO_IMPORT_PATH}`
+  );
+
+  try {
+    const configs = await scanNatsConfig(importPath);
+    console.log(`Auto-import: Found ${configs.length} NATS configurations`);
+
+    if (configs.length === 0) {
+      console.warn(
+        `Auto-import: No NATS configurations found at ${importPath}`
+      );
+      return;
+    }
+
+    // Get existing clusters
+    const existingClusters = await readClustersConfig();
+    console.log(
+      `Auto-import: Found ${existingClusters.length} existing clusters`
+    );
+
+    // Build a set of existing cluster names
+    const existingNames = new Set(existingClusters.map((c) => c.name));
+
+    // Filter new configs to only those that don't already exist
+    const newConfigs = configs.filter((c) => !existingNames.has(c.name));
+    console.log(
+      `Auto-import: Found ${newConfigs.length} new configurations to import`
+    );
+
+    if (newConfigs.length === 0) {
+      console.log("Auto-import: No new configurations to import");
+      return;
+    }
+
+    // Assign IDs to new configs and mark the first one as default if there are no existing clusters
+    const newClusters: ClusterConfig[] = newConfigs.map((config, index) => ({
+      id: randomUUID(),
+      name: config.name,
+      url: config.url,
+      credsPath: config.credsPath,
+      isDefault: existingClusters.length === 0 && index === 0,
+    }));
+
+    // Merge with existing clusters
+    const mergedClusters = [...existingClusters, ...newClusters];
+    console.log(`Auto-import: Saving ${mergedClusters.length} total clusters`);
+
+    // Save the merged clusters
+    await writeClustersConfig(mergedClusters);
+    console.log("Auto-import: Successfully imported NATS configurations");
+  } catch (error) {
+    console.error("Auto-import: Error importing NATS configurations:", error);
+  }
+}
+
+export function defaultCluster(env: NodeJS.ProcessEnv): ClusterConfig | null {
+  if (!isNatsUrlConfigured(env)) {
+    return null;
+  }
+
+  return {
+    id: defaultClusterId,
+    name: "Default",
+    url: env.NATS_URL || "http://localhost:4222",
+    credsPath: env.NATS_CREDS_PATH || "",
+    isDefault: true,
+  };
+}
+
+function defaultClusterList(env: NodeJS.ProcessEnv): ClusterConfig[] {
+  const d = defaultCluster(env);
+  if (d) {
+    return [d];
+  }
+  return [];
+}
+
+async function getClusterConfig(
+  clusterId: string
+): Promise<ClusterConfig | null> {
+  const clusters = await getClusters();
+  return clusters.find((c) => c.id === clusterId) || null;
+}
+
+export async function getClusters(): Promise<ClusterConfig[]> {
+  if (!isMulticlusterEnabled(process.env)) {
+    return defaultClusterList(process.env);
+  }
+
+  try {
+    const configured = await readClustersConfig();
+    return [...configured, ...defaultClusterList(process.env)];
+  } catch (error) {
+    console.error("Error loading clusters:", error);
+    return [];
+  }
+}
+
+export async function getNatsConnection(
+  clusterId?: string
+): Promise<NatsConnection> {
+  // If no specific cluster ID was provided
+  if (!clusterId) {
+    // Get all available clusters
+    const allClusters = await getClusters();
+
+    // If we have any clusters, use the first one
+    if (allClusters.length > 0) {
+      // Find default cluster first
+      const defaultCluster = allClusters.find((c) => c.isDefault);
+
+      // Use default cluster if available, otherwise use the first one
+      clusterId = defaultCluster ? defaultCluster.id : allClusters[0].id;
+    } else {
+      // No clusters available
+      throw new Error("No NATS clusters configured");
     }
   }
 
-  return natsConnection;
-}
-
-async function getJetStream(): Promise<JetStreamClient> {
-  const nc = await getNatsConnection();
-  return jetstream(nc);
-}
-
-export async function closeNatsConnection(): Promise<void> {
-  if (natsConnection) {
-    await natsConnection.drain();
-    natsConnection = null;
+  // Check if we already have an active connection
+  const existingConn = connections.get(clusterId);
+  if (existingConn && !existingConn.isClosed()) {
+    return existingConn;
   }
+
+  // Get cluster configuration
+  const cluster = await getClusterConfig(clusterId);
+  if (!cluster) {
+    throw new Error(`Cluster ${clusterId} not found`);
+  }
+
+  if (!cluster.credsPath) {
+    throw new Error(`Cluster ${clusterId} has no credentials path`);
+  }
+
+  const credsContent = readFileSync(cluster.credsPath);
+
+  // Create new connection
+  const conn = await connect({
+    servers: cluster.url,
+    authenticator: credsAuthenticator(credsContent),
+  });
+
+  // Store the connection
+  connections.set(clusterId, conn);
+  return conn;
+}
+
+export async function testConnection(
+  config: ClusterConfigParameters
+): Promise<ClusterConnectionStatus> {
+  let nc: NatsConnection | null = null;
+  try {
+    const options: ConnectionOptions = {
+      servers: config.url,
+      pingInterval: 5000, // Shorter ping interval for testing
+      maxPingOut: 2, // Fewer pings for quicker failure detection
+      timeout: 10000, // 10 second connection timeout
+    };
+
+    if (config.credsPath) {
+      try {
+        const creds = readFileSync(config.credsPath);
+        options.authenticator = credsAuthenticator(creds);
+      } catch (readError) {
+        const errorMessage =
+          readError instanceof Error
+            ? readError.message
+            : "Unknown error reading credentials file";
+        return {
+          name: config.name,
+          url: config.url,
+          status: "unhealthy",
+          error: `Failed to read credentials file ${config.credsPath}: ${errorMessage}`,
+        };
+      }
+    }
+
+    nc = await connect(options);
+
+    // Test basic connectivity by requesting server info
+    const serverInfo = nc.info;
+    if (!serverInfo) {
+      throw new Error("Could not get server information");
+    }
+
+    await nc.close();
+    return {
+      name: config.name,
+      url: config.url,
+      status: "healthy",
+    };
+  } catch (error) {
+    return {
+      name: config.name,
+      url: config.url,
+      status: "unhealthy",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to connect to NATS server",
+    };
+  } finally {
+    if (nc) {
+      try {
+        await nc.close();
+      } catch (closeError) {
+        console.error("Error closing test connection:", closeError);
+      }
+    }
+  }
+}
+
+export async function closeNatsConnection(clusterId?: string): Promise<void> {
+  if (clusterId) {
+    const conn = connections.get(clusterId);
+    if (conn) {
+      await conn.close();
+      connections.delete(clusterId);
+    }
+  } else {
+    // Close all connections if no clusterId provided
+    for (const [id, conn] of connections) {
+      await conn.close();
+      connections.delete(id);
+    }
+  }
+}
+
+async function getJetStream(clusterId?: string): Promise<JetStreamClient> {
+  const nc = await getNatsConnection(clusterId);
+  return jetstream(nc);
 }
 
 export async function coreSubscribe(
   subject: string,
-  callback: (msg: CoreMessage) => void
+  callback: (msg: CoreMessage, err: Error | undefined) => void,
+  clusterId?: string
 ): Promise<NatsSubscription> {
-  const nc = await getNatsConnection();
-  const subscription = nc.subscribe(subject, {
-    callback: (err, msg) => {
-      if (err) {
-        console.error(`Subscription error for subject ${subject}:`, err);
-      } else {
-        callback(convertCoreMessage(msg));
+  const nc = await getNatsConnection(clusterId);
+  const sub = nc.subscribe(subject);
+
+  (async () => {
+    for await (const msg of sub) {
+      try {
+        callback(convertCoreMessage(msg), undefined);
+      } catch (err) {
+        callback(
+          convertCoreMessage(msg),
+          err instanceof Error ? err : new Error(String(err))
+        );
       }
-    },
+    }
+  })().catch((err) => {
+    console.error("Subscription error:", err);
   });
 
   return {
     stop: async () => {
-      subscription.unsubscribe();
+      sub.unsubscribe();
     },
   };
 }
@@ -99,9 +341,10 @@ export async function coreSubscribe(
 export async function jetStreamSubscribe(
   streamName: string,
   subject: string,
-  callback: (msg: JetStreamMessage) => void
+  callback: (msg: JetStreamMessage) => void,
+  clusterId?: string
 ): Promise<NatsSubscription> {
-  const js = await getJetStream();
+  const js = await getJetStream(clusterId);
 
   try {
     // Generate a unique consumer name with a UUID
@@ -160,9 +403,10 @@ export async function jetStreamSubscribe(
 
 export async function getJetstreamMessage(
   streamName: string,
-  sequence: number
+  sequence: number,
+  clusterId?: string
 ): Promise<JetStreamMessage> {
-  const js = await getJetStream();
+  const js = await getJetStream(clusterId);
 
   try {
     // Get the message directly from the stream
@@ -189,6 +433,7 @@ export async function getJetstreamMessageRange(
   stream: string,
   startSeq: number,
   limit: number,
+  clusterId?: string,
   filterSubject?: string
 ): Promise<JetStreamMessage[]> {
   const consumerName = `_nats_watch_seq_range_${randomUUID()}`;
@@ -199,7 +444,7 @@ export async function getJetstreamMessageRange(
     limit = 1;
   }
 
-  const js = await getJetStream();
+  const js = await getJetStream(clusterId);
   let jsm: JetStreamManager | null = null;
 
   try {
@@ -259,8 +504,10 @@ export async function getJetstreamMessageRange(
   }
 }
 
-export async function listStreams(): Promise<StreamMetadata[]> {
-  const js = await getJetStream();
+export async function listStreams(
+  clusterId?: string
+): Promise<StreamMetadata[]> {
+  const js = await getJetStream(clusterId);
 
   try {
     const manager = await js.jetstreamManager();
@@ -274,6 +521,7 @@ export async function listStreams(): Promise<StreamMetadata[]> {
           name: stream.config.name,
           subjectPrefixes: stream.config.subjects,
           description: stream.config.description,
+          lastSequence: stream.state.last_seq,
         });
       }
     }
@@ -285,9 +533,10 @@ export async function listStreams(): Promise<StreamMetadata[]> {
 }
 
 export async function listConsumers(
-  streamName: string
+  streamName: string,
+  clusterId?: string
 ): Promise<ConsumerMetadata[]> {
-  const js = await getJetStream();
+  const js = await getJetStream(clusterId);
 
   try {
     const manager = await js.jetstreamManager();

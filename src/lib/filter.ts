@@ -33,7 +33,14 @@ function matchesFilterGroup(
   msg: NatsMessage | JetStreamMessage,
   filter: FilterGroup
 ): boolean {
-  return filter.filters.every((f) => matchesFilterNode(msg, f));
+  // Check if this is an AND group (default) or OR group
+  if (filter.logic === "or") {
+    // For OR logic, at least one filter must match
+    return filter.filters.some((f) => matchesFilterNode(msg, f));
+  } else {
+    // For AND logic, every filter must match
+    return filter.filters.every((f) => matchesFilterNode(msg, f));
+  }
 }
 
 function matchesValueFilter(

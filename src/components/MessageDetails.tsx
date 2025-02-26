@@ -168,7 +168,7 @@ export function MessageDetails({
                   </div>
                   {!embedded && (
                     <Link
-                      href={`/jetstream/${(message as JetStreamMessage).stream}/${(message as JetStreamMessage).seq}`}
+                      href={`/jetstream/${(message as JetStreamMessage).stream}/message/${(message as JetStreamMessage).seq}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="ml-1 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

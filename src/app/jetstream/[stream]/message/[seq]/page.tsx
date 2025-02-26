@@ -1,18 +1,18 @@
-import { getStreamMessage } from "@/app/actions";
+import { getStreamMessage } from "@/actions/streams";
 import { MessageDetails } from "@/components/MessageDetails";
 import { JSX } from "react";
 import { MessagePageClient } from "./client";
 import { MessageNotFound } from "./message-not-found";
 
-type Params = Promise<{ stream: string; seq: string }>;
+type Params = Promise<{ stream: string; seq: string; clusterId?: string }>;
 
 export default async function JetstreamMessagePage({
   params,
 }: {
   params: Params;
 }): Promise<JSX.Element> {
-  const { stream, seq } = await params;
-  const result = await getStreamMessage(stream, parseInt(seq, 10));
+  const { stream, seq, clusterId } = await params;
+  const result = await getStreamMessage(stream, parseInt(seq, 10), clusterId);
 
   if (!result.success) {
     return <MessageNotFound streamName={stream} seq={seq} />;

@@ -57,6 +57,7 @@ export type StreamMetadata = {
   name: string;
   subjectPrefixes: string[];
   description?: string;
+  lastSequence: number;
 };
 
 type ConsumerFlow = "push" | "pull";
@@ -75,4 +76,26 @@ export interface ConsumerMetadata {
   pendingCount: number;
   redeliveredCount: number;
   waitingCount: number;
+}
+
+export interface ClusterConfig {
+  id: string;
+  name: string;
+  url: string;
+  credsPath?: string;
+  isDefault?: boolean;
+}
+
+export interface ClusterConfigParameters {
+  name: string;
+  url: string;
+  credsPath?: string;
+  isDefault: boolean;
+}
+
+export interface ClusterConnectionStatus {
+  name: string;
+  url: string;
+  status: "healthy" | "unhealthy" | "unknown";
+  error?: string;
 }

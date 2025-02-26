@@ -49,8 +49,13 @@ function createTimeout(
 
 export async function GET(request: NextRequest): Promise<Response> {
   const searchParams = request.nextUrl.searchParams;
+  const clusterId = searchParams.get("clusterId");
   const subject = searchParams.get("subject");
   const streamParam = searchParams.get("stream");
+
+  if (!clusterId) {
+    return new Response("Cluster ID is required", { status: 400 });
+  }
 
   if (!subject) {
     return new Response("Subject is required", { status: 400 });
@@ -69,14 +74,19 @@ export async function GET(request: NextRequest): Promise<Response> {
                   type: "message",
                   payload: msg,
                 });
-              }
+              },
+              clusterId
             )
-          : await coreSubscribe(subject, (msg: CoreMessage) => {
-              sendEvent(controller, {
-                type: "message",
-                payload: msg,
-              });
-            });
+          : await coreSubscribe(
+              subject,
+              (msg: CoreMessage) => {
+                sendEvent(controller, {
+                  type: "message",
+                  payload: msg,
+                });
+              },
+              clusterId
+            );
 
         // Handle client disconnect
         request.signal.addEventListener("abort", () => {

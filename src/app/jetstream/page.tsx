@@ -2,7 +2,7 @@
 
 import { JSX, useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { getStreams } from "@/app/actions";
+import { getStreams } from "@/actions/streams";
 import { StreamMetadata } from "@/types/nats";
 import { Refresher } from "@/components/Refresher";
 import { CopyButton } from "@/components/CopyButton";
@@ -17,6 +17,8 @@ import {
   type Header,
 } from "@tanstack/react-table";
 import { SortIcon, NewPageLinkIcon } from "@/components/icons";
+import { useCluster } from "@/components/ClusterPicker";
+import { useClusterNavigation } from "@/hooks/useClusterNavigation";
 
 const HeaderCell = ({
   header,
@@ -77,30 +79,40 @@ const SubjectsCell = ({ value }: { value: string[] }): JSX.Element => (
   </div>
 );
 
-const StreamCell = ({ name }: { name: string }): JSX.Element => (
-  <div className="flex items-center gap-1.5 group">
-    <Link
-      href={`/jetstream/${name}`}
-      className="hover:text-blue-500 dark:hover:text-blue-400 truncate"
-      title={name}
-    >
-      {name}
-    </Link>
-    <CopyButton
-      value={name}
-      className="opacity-0 group-hover:opacity-100 shrink-0"
-      showBackground={false}
-      onClick={(e) => e.stopPropagation()}
-    />
-    <Link
-      href={`/jetstream/${name}`}
-      className="opacity-0 group-hover:opacity-100 shrink-0 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-      title="View stream details"
-    >
-      <NewPageLinkIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-    </Link>
-  </div>
-);
+const StreamCell = ({ name }: { name: string }): JSX.Element => {
+  const { navigateWithCluster } = useClusterNavigation();
+  const handleClick = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    navigateWithCluster(`/jetstream/${name}`);
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 group">
+      <Link
+        href="#"
+        onClick={handleClick}
+        className="hover:text-blue-500 dark:hover:text-blue-400 truncate"
+        title={name}
+      >
+        {name}
+      </Link>
+      <CopyButton
+        value={name}
+        className="opacity-0 group-hover:opacity-100 shrink-0"
+        showBackground={false}
+        onClick={(e) => e.stopPropagation()}
+      />
+      <Link
+        href="#"
+        onClick={handleClick}
+        className="opacity-0 group-hover:opacity-100 shrink-0 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+        title="View stream details"
+      >
+        <NewPageLinkIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+      </Link>
+    </div>
+  );
+};
 
 const columnHelper = createColumnHelper<StreamMetadata>();
 
@@ -134,6 +146,7 @@ function JetstreamHub(): JSX.Element {
   const [error, setError] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const searchParams = useSearchParams();
+  const { currentCluster } = useCluster();
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -141,6 +154,26 @@ function JetstreamHub(): JSX.Element {
       setError(decodeURIComponent(errorParam));
     }
   }, [searchParams]);
+
+  const fetchStreams = useCallback(async (): Promise<void> => {
+    const result = await getStreams(currentCluster?.id);
+    if (result.success) {
+      setStreams(result.data || []);
+      setError("");
+    } else {
+      setError(result.error || "Failed to fetch streams");
+      setStreams([]);
+    }
+  }, [currentCluster?.id]);
+
+  // Fetch streams when component mounts or when cluster changes
+  useEffect(() => {
+    if (currentCluster) {
+      void fetchStreams();
+    } else {
+      setStreams([]); // Only clear streams if there's no cluster
+    }
+  }, [currentCluster, fetchStreams]);
 
   const table = useReactTable({
     data: streams,
@@ -153,21 +186,6 @@ function JetstreamHub(): JSX.Element {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const fetchStreams = useCallback(async (): Promise<void> => {
-    const result = await getStreams();
-    if (result.success) {
-      setStreams(result.data || []);
-      setError("");
-    } else {
-      setError(result.error || "Failed to fetch streams");
-      setStreams([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchStreams();
-  }, [fetchStreams]);
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -176,7 +194,26 @@ function JetstreamHub(): JSX.Element {
       </div>
 
       {error && (
-        <div className="text-red-500 dark:text-red-400 text-sm">{error}</div>
+        <div className="p-4 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-400 text-sm mb-4">
+          <div className="font-semibold mb-1">Error:</div>
+          <div>{error}</div>
+          {error.includes("No NATS clusters configured") && (
+            <div className="mt-2">
+              Please select a NATS cluster from the sidebar or add a new cluster
+              in the Clusters section.
+            </div>
+          )}
+        </div>
+      )}
+
+      {!currentCluster && !error && (
+        <div className="p-4 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-700 dark:text-blue-400 text-sm mb-4">
+          <div className="font-semibold mb-1">No NATS Cluster Selected</div>
+          <div>
+            Please select a NATS cluster from the sidebar to view JetStream
+            streams.
+          </div>
+        </div>
       )}
 
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
