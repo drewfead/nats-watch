@@ -40,7 +40,7 @@
   font-weight: 100 900;
   font-display: swap;
   font-style: normal;
-  src: url('/fonts/Inter/Inter.var.woff2') format('woff2');
+  src: url('/fonts/Inter/InterVariable.woff2') format('woff2');
 }
 
 /* inter-variable-italic - latin */
@@ -49,5 +49,5 @@
   font-weight: 100 900;
   font-display: swap;
   font-style: italic;
-  src: url('/fonts/Inter/Inter-Italic.var.woff2') format('woff2');
+  src: url('/fonts/Inter/InterVariable-Italic.woff2') format('woff2');
 } 

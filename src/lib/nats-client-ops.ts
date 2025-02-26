@@ -11,7 +11,7 @@ export function isValidNatsSubject(subject: string): {
   }
 
   // Check for special characters that are not allowed (., *, >)
-  const invalidCharMatch = subject.match(/[.*>]/);
+  const invalidCharMatch = subject.match(/[*>].+/);
   if (invalidCharMatch) {
     return {
       isValid: false,

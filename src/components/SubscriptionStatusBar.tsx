@@ -1,4 +1,4 @@
-import { JSX } from "react";
+import { JSX, ReactNode } from "react";
 import { SubscribeIcon, CloseIcon } from "@/components/icons";
 
 type SubscriptionStatusBarProps = {
@@ -7,6 +7,7 @@ type SubscriptionStatusBarProps = {
   isDisabled: boolean;
   onSubscribe: () => void;
   onUnsubscribe: () => void;
+  children?: ReactNode;
 };
 
 export function SubscriptionStatusBar({
@@ -15,6 +16,7 @@ export function SubscriptionStatusBar({
   isDisabled,
   onSubscribe,
   onUnsubscribe,
+  children,
 }: SubscriptionStatusBarProps): JSX.Element {
   return (
     <div className="relative flex items-center justify-between py-2 pl-2">
@@ -44,6 +46,7 @@ export function SubscriptionStatusBar({
       </div>
 
       <div className="flex items-center gap-3">
+        {children}
         {!isSubscribed ? (
           <button
             onClick={onSubscribe}
