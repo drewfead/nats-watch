@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-export const ROW_HEIGHT = 48;
+export const ROW_HEIGHT = 20;
 const OVERSCAN = 10;
 
 interface BaseMessageListProps {
@@ -257,7 +257,7 @@ export function MessageList({
 
       <div
         ref={tableContainerRef}
-        className={`h-[600px] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow ${className}`}
+        className={`h-[calc(100vh-300px)] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow ${className}`}
       >
         <table className="w-full table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-700">

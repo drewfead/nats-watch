@@ -1,5 +1,9 @@
+"use server";
+
 import { promises as fs } from "fs";
-import { join } from "path";
+import pathBrowserify from "path-browserify";
+// Use only the browserify version
+const pathModule = pathBrowserify;
 import { ClusterConfig } from "@/types/nats";
 
 // Get configuration directory from environment variable or use sensible defaults
@@ -22,7 +26,7 @@ async function ensureConfigDir(): Promise<void> {
 export async function readClustersConfig(): Promise<ClusterConfig[]> {
   try {
     await ensureConfigDir();
-    const filePath = join(CONFIG_DIR, CLUSTERS_FILE);
+    const filePath = pathModule.join(CONFIG_DIR, CLUSTERS_FILE);
 
     try {
       const data = await fs.readFile(filePath, "utf-8");
@@ -48,7 +52,7 @@ export async function writeClustersConfig(
 ): Promise<void> {
   try {
     await ensureConfigDir();
-    const filePath = join(CONFIG_DIR, CLUSTERS_FILE);
+    const filePath = pathModule.join(CONFIG_DIR, CLUSTERS_FILE);
     await fs.writeFile(filePath, JSON.stringify(clusters, null, 2), "utf-8");
     console.log(`Successfully wrote clusters config to ${filePath}`);
   } catch (error) {

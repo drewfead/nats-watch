@@ -78,7 +78,7 @@ function ImportDialog({
             (existing) =>
               existing.name === newCluster.name &&
               existing.url === newCluster.url &&
-              existing.credsPath === newCluster.credsPath
+              existing.auth === newCluster.auth
           );
         });
 
@@ -420,9 +420,27 @@ function ClusterForm({
   const [formData, setFormData] = useState<ClusterConfigParameters>({
     name: initialData?.name || "",
     url: initialData?.url || "",
-    credsPath: initialData?.credsPath || "",
+    auth: initialData?.auth || { type: "anonymous" },
     isDefault: initialData?.isDefault || false,
   });
+
+  // Helper to get credentials path from auth object
+  const getCredsPath = (): string => {
+    if (formData.auth.type === "credsfile" && "credsFile" in formData.auth) {
+      return formData.auth.credsFile;
+    }
+    return "";
+  };
+
+  // Helper to update auth with credentials path
+  const updateCredsPath = (path: string): void => {
+    setFormData({
+      ...formData,
+      auth: path.trim()
+        ? { type: "credsfile", credsFile: path }
+        : { type: "anonymous" },
+    });
+  };
 
   return (
     <form
@@ -462,10 +480,8 @@ function ClusterForm({
         </label>
         <input
           type="text"
-          value={formData.credsPath}
-          onChange={(e) =>
-            setFormData({ ...formData, credsPath: e.target.value })
-          }
+          value={getCredsPath()}
+          onChange={(e) => updateCredsPath(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
         />
       </div>
@@ -609,12 +625,16 @@ function ClustersContent(): JSX.Element {
   ): Promise<void> => {
     try {
       setTestingClusters((prev) => new Set([...prev, cluster.id]));
-      const status = await testClusterConnection({
+
+      // Create parameters for testing the connection
+      const testParams: ClusterConfigParameters = {
         name: cluster.name,
         url: cluster.url,
-        credsPath: cluster.credsPath,
+        auth: cluster.auth,
         isDefault: cluster.isDefault ?? false,
-      });
+      };
+
+      const status = await testClusterConnection(testParams);
       setConnectionStatus((prev) => ({
         ...prev,
         [cluster.id]: status,
@@ -745,7 +765,10 @@ function ClustersContent(): JSX.Element {
                   {cluster.url}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {cluster.credsPath || "-"}
+                  {cluster.auth.type === "credsfile" &&
+                  "credsFile" in cluster.auth
+                    ? cluster.auth.credsFile
+                    : "-"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center justify-center gap-4">

@@ -335,7 +335,7 @@ export function ClusterProvider({
       const status = await testClusterConnection({
         name: cluster.name,
         url: cluster.url,
-        credsPath: cluster.credsPath,
+        auth: cluster.auth,
         isDefault: cluster.isDefault ?? false,
       });
       setConnectionStatus(status);
@@ -448,7 +448,7 @@ export function ClusterProvider({
             const status = await testClusterConnection({
               name: selectedCluster.name,
               url: selectedCluster.url,
-              credsPath: selectedCluster.credsPath,
+              auth: selectedCluster.auth,
               isDefault: selectedCluster.isDefault ?? false,
             });
             setConnectionStatus(status);

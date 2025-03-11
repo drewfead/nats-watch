@@ -41,7 +41,7 @@ export async function addCluster(
       id: randomUUID(),
       name: data.name,
       url: data.url,
-      credsPath: data.credsPath,
+      auth: data.auth,
       isDefault: data.isDefault,
     };
 
@@ -98,7 +98,7 @@ export async function updateCluster(
             ...cluster,
             name: data.name,
             url: data.url,
-            credsPath: data.credsPath,
+            auth: data.auth,
             isDefault: data.isDefault,
           }
         : cluster
