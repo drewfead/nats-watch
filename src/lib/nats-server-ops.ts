@@ -1,3 +1,4 @@
+"use server";
 import {
   jetstream,
   JsMsg,
@@ -15,9 +16,12 @@ import {
   Msg,
   credsAuthenticator,
   ConnectionOptions,
+  Authenticator,
+  usernamePasswordAuthenticator,
 } from "@nats-io/nats-core";
 import { readFileSync } from "fs";
 import {
+  ClusterAuthConfig,
   ClusterConnectionStatus,
   ConsumerMetadata,
   CoreMessage,
@@ -42,7 +46,7 @@ const connections = new Map<string, NatsConnection>();
 const defaultClusterId = "default";
 
 // Auto-import NATS configurations on server startup
-export async function autoImportNatsConfigurations(): Promise<void> {
+export async function importNatsConfigurations(): Promise<void> {
   if (!isMulticlusterEnabled(process.env)) {
     console.log("Auto-import: Multicluster support is not enabled");
     return;
@@ -65,16 +69,6 @@ export async function autoImportNatsConfigurations(): Promise<void> {
 
   console.log(
     `Auto-import: Starting scan of NATS configurations from path: ${importPath}`
-  );
-  console.log(`Auto-import: Environment variables:`);
-  console.log(
-    `- NEXT_PUBLIC_MULTICLUSTER_ENABLED: ${process.env.NEXT_PUBLIC_MULTICLUSTER_ENABLED}`
-  );
-  console.log(
-    `- NATS_CLUSTER_AUTO_IMPORT: ${process.env.NATS_CLUSTER_AUTO_IMPORT}`
-  );
-  console.log(
-    `- NATS_CLUSTER_AUTO_IMPORT_PATH: ${process.env.NATS_CLUSTER_AUTO_IMPORT_PATH}`
   );
 
   try {
@@ -113,7 +107,7 @@ export async function autoImportNatsConfigurations(): Promise<void> {
       id: randomUUID(),
       name: config.name,
       url: config.url,
-      credsPath: config.credsPath,
+      auth: config.auth,
       isDefault: existingClusters.length === 0 && index === 0,
     }));
 
@@ -129,22 +123,45 @@ export async function autoImportNatsConfigurations(): Promise<void> {
   }
 }
 
-export function defaultCluster(env: NodeJS.ProcessEnv): ClusterConfig | null {
+export async function defaultCluster(
+  env: NodeJS.ProcessEnv
+): Promise<ClusterConfig | null> {
   if (!isNatsUrlConfigured(env)) {
     return null;
+  }
+
+  let auth: ClusterAuthConfig;
+
+  if (env.NATS_CREDS_PATH) {
+    auth = {
+      type: "credsfile",
+      credsFile: env.NATS_CREDS_PATH,
+    };
+  } else if (env.NATS_USERNAME && env.NATS_PASSWORD) {
+    auth = {
+      type: "username-password",
+      username: env.NATS_USERNAME,
+      password: env.NATS_PASSWORD,
+    };
+  } else {
+    auth = {
+      type: "anonymous",
+    };
   }
 
   return {
     id: defaultClusterId,
     name: "Default",
     url: env.NATS_URL || "http://localhost:4222",
-    credsPath: env.NATS_CREDS_PATH || "",
+    auth,
     isDefault: true,
   };
 }
 
-function defaultClusterList(env: NodeJS.ProcessEnv): ClusterConfig[] {
-  const d = defaultCluster(env);
+async function defaultClusterList(
+  env: NodeJS.ProcessEnv
+): Promise<ClusterConfig[]> {
+  const d = await defaultCluster(env);
   if (d) {
     return [d];
   }
@@ -165,10 +182,32 @@ export async function getClusters(): Promise<ClusterConfig[]> {
 
   try {
     const configured = await readClustersConfig();
-    return [...configured, ...defaultClusterList(process.env)];
+    const defaultClusters = await defaultClusterList(process.env);
+    return [...configured, ...defaultClusters];
   } catch (error) {
     console.error("Error loading clusters:", error);
     return [];
+  }
+}
+
+function getNatsAuthenticator(
+  auth: ClusterAuthConfig
+): Authenticator | undefined {
+  switch (auth.type) {
+    case "credsfile":
+      try {
+        const credsContent = readFileSync(auth.credsFile);
+        return credsAuthenticator(credsContent);
+      } catch (error) {
+        console.error("Error reading credentials file:", error);
+        throw new Error(`Failed to read credentials file ${auth.credsFile}`);
+      }
+    case "username-password":
+      return usernamePasswordAuthenticator(auth.username, auth.password);
+    case "anonymous":
+      return undefined;
+    default:
+      return undefined;
   }
 }
 
@@ -205,16 +244,14 @@ export async function getNatsConnection(
     throw new Error(`Cluster ${clusterId} not found`);
   }
 
-  if (!cluster.credsPath) {
-    throw new Error(`Cluster ${clusterId} has no credentials path`);
+  if (!cluster.auth) {
+    throw new Error(`Cluster ${clusterId} has no auth configuration`);
   }
-
-  const credsContent = readFileSync(cluster.credsPath);
 
   // Create new connection
   const conn = await connect({
     servers: cluster.url,
-    authenticator: credsAuthenticator(credsContent),
+    authenticator: getNatsAuthenticator(cluster.auth),
   });
 
   // Store the connection
@@ -234,22 +271,17 @@ export async function testConnection(
       timeout: 10000, // 10 second connection timeout
     };
 
-    if (config.credsPath) {
-      try {
-        const creds = readFileSync(config.credsPath);
-        options.authenticator = credsAuthenticator(creds);
-      } catch (readError) {
-        const errorMessage =
-          readError instanceof Error
-            ? readError.message
-            : "Unknown error reading credentials file";
-        return {
-          name: config.name,
-          url: config.url,
-          status: "unhealthy",
-          error: `Failed to read credentials file ${config.credsPath}: ${errorMessage}`,
-        };
-      }
+    try {
+      options.authenticator = getNatsAuthenticator(config.auth);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return {
+        name: config.name,
+        url: config.url,
+        status: "unhealthy",
+        error: errorMessage,
+      };
     }
 
     nc = await connect(options);
@@ -357,8 +389,11 @@ export async function jetStreamSubscribe(
     const consumerConfig: Partial<ConsumerConfig> = {
       filter_subjects: [subject],
       name: consumerName,
+      max_deliver: 1,
+      max_ack_pending: 100,
+      max_waiting: 1,
       deliver_policy: DeliverPolicy.New,
-      inactive_threshold: 30 * 60 * 1000, // 30 minutes
+      inactive_threshold: 5 * 1e9, // 5 seconds in nanos
       replay_policy: ReplayPolicy.Instant,
       ack_policy: AckPolicy.None,
     };

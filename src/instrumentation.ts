@@ -2,12 +2,18 @@
 // This runs when the Next.js server starts
 // https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
 
-import { scanNatsConfig } from "./lib/nats-cli";
-import { importClusters } from "./actions/clusters";
-
 export async function register(): Promise<void> {
   // Only run on the server
-  if (typeof window !== "undefined") return;
+  if (typeof window !== "undefined") {
+    return;
+  }
+
+  if (process.env.NEXT_RUNTIME !== "nodejs") {
+    return;
+  }
+
+  const natsCli = await import("./lib/nats-cli");
+  const clusterActions = await import("./actions/clusters");
 
   console.log("====================================");
   console.log("NATS WATCH INSTRUMENTATION HOOK RUNNING");
@@ -33,7 +39,7 @@ export async function register(): Promise<void> {
     console.log(`Scanning for NATS configurations in: ${importPath}`);
 
     // Use the existing scanNatsConfig function to scan for NATS configurations
-    const natsConfigurations = await scanNatsConfig(importPath);
+    const natsConfigurations = await natsCli.scanNatsConfig(importPath);
 
     if (natsConfigurations.length === 0) {
       console.log("No NATS configurations found.");
@@ -43,7 +49,7 @@ export async function register(): Promise<void> {
     console.log(`Found ${natsConfigurations.length} NATS configurations.`);
 
     // Import the found configurations using the existing importClusters function
-    const result = await importClusters(natsConfigurations);
+    const result = await clusterActions.importClusters(natsConfigurations);
 
     if (result.success) {
       console.log("Successfully imported NATS configurations.");

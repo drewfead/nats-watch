@@ -5,7 +5,6 @@ import { JSX } from "react";
 import { Navigation } from "@/components/Navigation";
 import { NotificationProvider } from "./notifications";
 import { ClusterProvider } from "@/components/ClusterPicker";
-import AutoImportServer from "./auto-import-server";
 
 export const metadata: Metadata = {
   title: "NatsWatch",
@@ -20,9 +19,6 @@ export default function RootLayout({ children }: RootLayoutProps): JSX.Element {
   return (
     <html lang="en" className="h-full">
       <body className="h-full font-sans antialiased">
-        {/* Auto-import NATS configurations on server render */}
-        <AutoImportServer />
-
         <NotificationProvider>
           <ClusterProvider>
             <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">

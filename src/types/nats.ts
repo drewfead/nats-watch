@@ -78,18 +78,38 @@ export interface ConsumerMetadata {
   waitingCount: number;
 }
 
+export type ClusterAuthConfig =
+  | CredsFileAuthConfig
+  | UsernamePasswordAuthConfig
+  | AnonymousAuthConfig;
+
+export interface CredsFileAuthConfig {
+  type: "credsfile";
+  credsFile: string;
+}
+
+export interface UsernamePasswordAuthConfig {
+  type: "username-password";
+  username: string;
+  password: string;
+}
+
+export interface AnonymousAuthConfig {
+  type: "anonymous";
+}
+
 export interface ClusterConfig {
   id: string;
   name: string;
   url: string;
-  credsPath?: string;
+  auth: ClusterAuthConfig;
   isDefault?: boolean;
 }
 
 export interface ClusterConfigParameters {
   name: string;
   url: string;
-  credsPath?: string;
+  auth: ClusterAuthConfig;
   isDefault: boolean;
 }
 

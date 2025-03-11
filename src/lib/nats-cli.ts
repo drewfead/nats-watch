@@ -1,7 +1,9 @@
+"use server";
+
 import { promises as fs } from "fs";
 import { join, dirname, basename } from "path";
 import { homedir } from "os";
-import { ClusterConfigParameters } from "@/types/nats";
+import { ClusterAuthConfig, ClusterConfigParameters } from "@/types/nats";
 
 interface NatsConfig {
   description?: string;
@@ -127,16 +129,20 @@ async function scanDirectory(
               `Credentials file not accessible: ${credsPath}, error: ${message}`
             );
           }
+
+          configs.push({
+            name,
+            url: config.url,
+            auth: {
+              type: "credsfile",
+              credsFile: credsPath,
+            },
+            isDefault: false, // We'll determine this later
+          });
         } else {
           console.log(`No credentials specified in config`);
         }
 
-        configs.push({
-          name,
-          url: config.url,
-          credsPath,
-          isDefault: false, // We'll determine this later
-        });
         processedNames.add(name);
         console.log(`Added config for: ${name} (${config.url})`);
       } else {
@@ -200,11 +206,23 @@ export async function scanNatsConfig(
               : join(dirPath, config.creds);
           }
 
+          let auth: ClusterAuthConfig;
+          if (credsPath) {
+            auth = {
+              type: "credsfile",
+              credsFile: credsPath,
+            };
+          } else {
+            auth = {
+              type: "anonymous",
+            };
+          }
+
           return [
             {
               name,
               url: config.url,
-              credsPath,
+              auth,
               isDefault: false,
             },
           ];
